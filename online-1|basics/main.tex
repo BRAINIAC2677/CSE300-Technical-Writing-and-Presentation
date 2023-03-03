@@ -9,9 +9,12 @@
 \usepackage{biblatex}
 \usepackage{graphicx}
 \usepackage{caption}
-\usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[ruled]{algorithm2e}
+\usepackage{float}
 \graphicspath{{./images/}}
 
 \title{\raggedright{Point Cloud Sampling Network}}
@@ -23,6 +26,9 @@
 \date{}
 \addbibresource{bibliography.bib}
 
+
+
+
 \begin{document}
 \maketitle
 
@@ -31,7 +37,7 @@ The increasing number of points in 3D point clouds has brought great challenges 
 
 \begin{multicols}{2}
 \section{Introduction}
-Existing works \cite{1}–\cite{2} often use random sampling and the farthest point sampling (FPS) to down-sample the point clouds.The differences between our work and former learning-based works are presented in \ref{fig:fig1}.The discrepancy between progress-net and our method is presented in \ref{fig:fig1}-(b) and (c).
+Existing works  \cite{qi2017pointnet++,hu2020randla,qi2019deep} often use random sampling and the farthest point sampling (FPS) to down-sample the point clouds.The differences between our work and former learning-based works are presented in \href{fig:fig1}{Fig. 1}.The discrepancy between progress-net and our method is presented in \href{fig:fig1}{Fig. 1}-(b) and (c).
 
 \begin{figure}[H]
 \includegraphics[scale=0.5]{image1}
@@ -49,9 +55,10 @@ different sampling resolutions by randomly introducing selecting the resolution 
 
 \section{Methodology}
 \subsection{Basic Pipeline}
-The basic pipeline of FPN is presented in Fig. 2. We aggregate global features from the input points with a set of multilevel perceptions (MLPs) and Max Pooling following PointNet \cite{qi2017pointnet}.
+The basic pipeline of FPN is presented in \href{fig:fig2}{Fig. 2}. We aggregate global features from the input points with a set of multilevel perceptions (MLPs) and Max Pooling following PointNet \cite{qi2017pointnet}
+
 \subsection{Hybrid Training Strategy}
-The achievement of HTS is presented as Algorithm 9.
+The achievement of HTS is presented as \href{alg:1}{Algorithm 9}.
 \subsection{Loss function}
 The range constraint can be presented as
 \begin{equation}
@@ -60,9 +67,11 @@ The range constraint can be presented as
 
 For reconstructionrelated tasks, it may be Chamfer Distance or Earth Mover Distance [22] defined as\\
 
-\raggedright{$\mathcal{L}_{task}=L_{CD}(S_1,S_2)$}
 \begin{equation}
-	=\frac{1}{2}\Biggl(\frac{1}{|S_1|}\sum_{x\in S_1} min_{y\in S_2})||x-y||_2+\frac{1}{|S_2|}\sum_{x\in S_2}min_{y\in S_1}||x-y||_2\Biggr)
+\begin{split}
+	\mathcal{L}_{task}&=L_{CD}(S_1,S_2)\\
+	&=\frac{1}{2}\Biggl(\frac{1}{|S_1|}\sum_{x\in S_1} min_{y\in S_2})||x-y||_2+\frac{1}{|S_2|}\sum_{x\in S_2}min_{y\in S_1}||x-y||_2\Biggr)
+\end{split}
 \end{equation}
 or
 \begin{equation}
@@ -70,16 +79,60 @@ or
 \end{equation}
 
 \section{Experiments}
-\begin{table}
-    \centering
+\subsection{Dataset and Implementation Details}
+\label{subsec:4.1}
+\begin{table}[H]
+    \caption{The number of neurons in networks. $f_1 , f_2 , f_3$ are modules in \href{fig:fig2}{Fig. 2}.}
     \begin{tabular}{cccc}
+		\hline
     	&$f_1$&$f_2$&$f_3$\\
-
+		\hline
+		MLPs&(128,256,256)&(128,256,256)&(128,128,3)\\
+		\hline
     \end{tabular}
-
+	\label{table:1}
 \end{table}
 
+\begin{table}[H]
+    \caption{The comparison on optimal clustering.}
+    \begin{tabular}{ccccc}
+		\hline
+    	Center&Iterations&1&10&100\\
+		\hline
+		16&FPS&2.43&2.00&1.98\\
+		&Ours&2.16&1.98&1.96\\
+		32&FPS&1.20&1.02&1.00\\
+		&Ours&1.11&1.00&1.00\\
+		\hline
+    \end{tabular}
+	\label{table:2}
+\end{table}
+The hyper-parameter $\lambda$ is tuned on the validation split of ShapeNet.Detailed network structures are shown in \href{table:1}{Table 1}
 
+\subsection{Discussion and Clustering}
+Except down-stream tasks such as reconstruction or recognition, down-sampled points can also be adopted as the initial clustering centers.  The results are presented in \href{table:2}{Table 2}.
+
+\begin{figure*}
+  \includegraphics[width=\linewidth]{image2.png}
+  \caption{The whole pipeline of FPN. The + denotes element-wised addition. $f_1$ and $f_2$ aggregate features by MultiLayer Perceptrons(MLPs) and pooling, while $f_3$ is a group of MLPs to predict offsets from coordinates and features. The task network is corresponding to the speciﬁc task, such as point cloud recognition and reconstruction. $L_{task}$ is the loss constrained the task network.}
+ \label{fig:fig2}
+\end{figure*}
+
+\subsection{Ablation Study}
+\textbf{The influence of range constraint.} Note that this is only conducted to observe the influence of range constraint weight $\lambda$ on sampling performances instead of the tuning of $\lambda$, which is chosen according to the val set introduced in \href{subsec:4.1}{Section 4.1}.
+
+\begin{algorithm}[H]
+ \label{alg:1}
+ \caption{Training with Hybrid Training Strategy}
+ \SetAlgoNoLine
+ \KwIn{data $X$, the number of iterations $iter$, the number of resolutions $m$;}
+ $prob_1, prob_2, \ldots, prob_m = \frac{1}{m}, \frac{1}{m}, \ldots, \frac{1}{m};$\\
+ \SetKwFor{For}{for}{do}{end for}
+ \For{$i=1$ \KwTo $iter$}
+ {
+ Select the resolution $r$ according to $prob_1,\ldots, prob_m$;\\Train FPN by descending gradient:$\Delta_{\theta_{FPN}}\mathcal{L}_{loss}\left(Y_{X, r}\right)$\\
+ }
+\end{algorithm}
 
 \printbibliography
 \end{multicols}
